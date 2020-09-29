@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -15,6 +16,24 @@ namespace AppStarter
 {
     public partial class FormMain : Form
     {
+        #region SINGLE INSTANCE Implementation
+        protected override void WndProc(ref Message message)
+        {
+            if (message.Msg == SingleInstance.WM_SHOWFIRSTINSTANCE)
+            {
+                ShowWindow();
+            }
+            base.WndProc(ref message);
+        }
+        public void ShowWindow()
+        {
+            // Insert code here to make your form show itself.
+            WinApi.ShowToFront(this.Handle);
+        }
+        #endregion
+
+        bool startBlocked = false;
+
         const string DataFile = "AppStarter.data";
         public AppStartData Data { get; set; }
         private List<TreeNode> CategoryNodes { get; set; }
@@ -23,10 +42,18 @@ namespace AppStarter
         {
             InitializeComponent();
             CategoryNodes = new List<TreeNode>();
+
+
         }
 
         private void LoadData()
         {
+            treeView1.Nodes.Clear();
+            treeView1.ImageList = new ImageList();
+            treeView1.ImageList.ImageSize = new Size(32, 32);
+            treeView1.ImageList.Images.Add(new Bitmap(1, 1));
+
+
             if (File.Exists(DataFile))
             {
                 Data = XmlHelper.DeserializeFromFile<AppStartData>(DataFile);
@@ -35,24 +62,25 @@ namespace AppStarter
             {
                 Data = new AppStartData();
 
-                //var path = Environment.ExpandEnvironmentVariables("%systemroot%\\explorer.exe");
-                //var icon = (Icon)Icon.ExtractAssociatedIcon(path).Clone();
-                //treeView1.ImageList.Images.Add(icon);
+                var path = Environment.ExpandEnvironmentVariables("%systemroot%\\explorer.exe");
+                var icon = (Icon)Icon.ExtractAssociatedIcon(path).Clone();
 
-                //Data.Items.Add(new AppStartItem()
-                //{
-                //    Category = "Test",
-                //    Text = "Text",
-                //    Path = path,
-                //    IconID = icon,
-                //});
+                treeView1.ImageList.Images.Add(icon);
+
+                Data.Items.Add(new AppStartItem()
+                {
+                    Category = "Test",
+                    Text = "Text",
+                    Path = path,
+                    IconID = icon,
+                });
             }
             CreateTreeView();
         }
+
         private void CreateTreeView()
         {
-            var imageIdx = 0;
-            treeView1.ImageList = new ImageList();
+            var imageIdx = 1;
 
             foreach (var cat in Data.Categories)
             {
@@ -68,21 +96,46 @@ namespace AppStarter
                     CreateStartItem(item, imageIdx);
                     imageIdx++;
                 }
+                else
+                {
+                    CreateStartItem(item, 0);
+                }
+            }
+
+            foreach (TreeNode node in treeView1.Nodes)
+            {
+                node.Expand();
             }
         }
         private void CreateCategory(string text)
         {
-            var categoryNode = new TreeNode { Text = text };
+            if (text == null)
+                text = "(no category)";
+
+            var categoryNode = new TreeNode { Text = text, ImageIndex = 0, SelectedImageIndex = 0 };
             treeView1.Nodes.Add(categoryNode);
             CategoryNodes.Add(categoryNode);
         }
         private void CreateStartItem(AppStartItem item, int imageIdx)
         {
+
+
+            if (item.Category == null)
+                item.Category = "(no category)";
+
             var catNode = CategoryNodes.FirstOrDefault(c => c.Text == item.Category);
 
             if (catNode != null)
             {
-                var starterNode = new TreeNode { Text = item.Text, ImageIndex = imageIdx };
+                var starterNode = new TreeNode
+                {
+                    Text = item.Text,
+                    ImageIndex = imageIdx,
+                    SelectedImageIndex = imageIdx,
+                    ToolTipText = item.Path
+                };
+                if (imageIdx == 0)
+                    starterNode.ForeColor = Color.Red;
                 catNode.Nodes.Add(starterNode);
             }
             else
@@ -90,6 +143,7 @@ namespace AppStarter
                 throw new NoNullAllowedException();
             }
         }
+
         private void SaveData()
         {
             XmlHelper.SerializeToFile<AppStartData>(Data, DataFile);
@@ -98,6 +152,39 @@ namespace AppStarter
         {
             // ProcessStart
             // Dialog YesNo - Reload Data?
+        }
+
+        private void StartItem()
+        {
+            if (startBlocked)
+                return;
+
+            try
+            {
+                var selectedNode = treeView1.SelectedNode;
+
+                if (selectedNode != null && selectedNode.Nodes.Count == 0 && selectedNode.ForeColor != Color.Red)
+                {
+                    Console.WriteLine($"StartItem({selectedNode.Text})");
+
+                    var appStartItem = Data.Items.FirstOrDefault(i => i.Text == selectedNode.Text);
+
+                    if (appStartItem != null)
+                    {
+                        startBlocked = true;
+                        treeView1.SelectedNode = null;
+                        HideApp();
+                        Process.Start(appStartItem.Path);
+                        startBlocked = false;
+                    }
+
+                }
+            }
+            catch (Exception)
+            {
+
+            }
+
         }
 
         #region EVENTS
@@ -136,13 +223,10 @@ namespace AppStarter
         {
             OpenData();
         }
-        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            CloseApp();
-        }
         private void notifyIcon1_MouseClick(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
+                //if (this.WindowState == FormWindowState.Minimized)
                 RestoreApp();
         }
 
@@ -152,22 +236,41 @@ namespace AppStarter
                 RestoreApp();
         }
 
+        private void FormMain_Deactivate(object sender, EventArgs e)
+        {
+            this.HideApp();
+        }
+
+        private void treeView1_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            var hitTest = e.Node.TreeView.HitTest(e.Location);
+            if (hitTest.Location == TreeViewHitTestLocations.PlusMinus)
+                return;
+
+            //if (e.Node == treeView1.SelectedNode)
+            //    StartItem();
+
+            //if (e.Node.IsExpanded)
+            //    e.Node.Collapse();
+            //else
+            //    e.Node.Expand();
+        }
+        private void treeView1_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            if (treeView1.SelectedNode != null)
+                StartItem();
+        }
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CloseApp();
+        }
+
+        private void reloadAppsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadData();
+        }
+
         #endregion
-
-        protected override void WndProc(ref Message message)
-        {
-            if (message.Msg == SingleInstance.WM_SHOWFIRSTINSTANCE)
-            {
-                ShowWindow();
-            }
-            base.WndProc(ref message);
-        }
-
-        public void ShowWindow()
-        {
-            // Insert code here to make your form show itself.
-            WinApi.ShowToFront(this.Handle);
-        }
 
         private void CloseApp()
         {
@@ -197,11 +300,17 @@ namespace AppStarter
 
         private void RestoreApp()
         {
+            startBlocked = true;
             //this.TopMost = true;
             //this.ShowInTaskbar = true;
             this.BringToFront();
             this.Show();
             this.Activate();
+            this.WindowState = FormWindowState.Normal;
+
+
+            this.treeView1.Focus();
+            startBlocked = false;
             //this.TopMost = false;
         }
         private void HideApp()
@@ -210,23 +319,5 @@ namespace AppStarter
             this.Hide();
         }
 
-        private void FormMain_Deactivate(object sender, EventArgs e)
-        {
-#if (!DEBUG)
-            this.HideApp();
-#endif 
-        }
-
-        private void treeView1_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
-        {
-            var hitTest = e.Node.TreeView.HitTest(e.Location);
-            if (hitTest.Location == TreeViewHitTestLocations.PlusMinus)
-                return;
-
-            if (e.Node.IsExpanded)
-                e.Node.Collapse();
-            else
-                e.Node.Expand();
-        }
     }
 }

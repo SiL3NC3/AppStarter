@@ -12,6 +12,7 @@ namespace AppStarter.Models
             Items = new List<AppStartItem>();
         }
         public List<AppStartItem> Items { get; set; }
+
         public List<String> Categories
         {
             get
