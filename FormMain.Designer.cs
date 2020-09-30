@@ -54,7 +54,7 @@
             // 
             this.notifyIcon1.ContextMenuStrip = this.contextMenuStrip1;
             this.notifyIcon1.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon1.Icon")));
-            this.notifyIcon1.Text = "notifyIcon1";
+            this.notifyIcon1.Text = "AppStarter [M4N]";
             this.notifyIcon1.Visible = true;
             this.notifyIcon1.MouseClick += new System.Windows.Forms.MouseEventHandler(this.notifyIcon1_MouseClick);
             this.notifyIcon1.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.notifyIcon1_MouseDoubleClick);
@@ -80,6 +80,7 @@
             this.reloadAppsToolStripMenuItem.Name = "reloadAppsToolStripMenuItem";
             this.reloadAppsToolStripMenuItem.Size = new System.Drawing.Size(138, 22);
             this.reloadAppsToolStripMenuItem.Text = "&Reload apps";
+            this.reloadAppsToolStripMenuItem.Visible = false;
             this.reloadAppsToolStripMenuItem.Click += new System.EventHandler(this.reloadAppsToolStripMenuItem_Click);
             // 
             // exitToolStripMenuItem
@@ -101,7 +102,7 @@
             this.MinimizeBox = false;
             this.Name = "FormMain";
             this.ShowInTaskbar = false;
-            this.Text = "AppStarter";
+            this.Text = "AppStarter [M4N]";
             this.Deactivate += new System.EventHandler(this.FormMain_Deactivate);
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormMain_FormClosing);
             this.Load += new System.EventHandler(this.FormMain_Load);

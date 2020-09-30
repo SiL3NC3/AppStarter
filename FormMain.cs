@@ -74,6 +74,8 @@ namespace AppStarter
                     Path = path,
                     IconID = icon,
                 });
+
+                SaveData();
             }
             CreateTreeView();
         }
@@ -89,7 +91,14 @@ namespace AppStarter
 
             foreach (var item in Data.Items)
             {
-                if (File.Exists(item.Path))
+                if (item.Path.EndsWith("\\"))
+                {
+                    if (Directory.Exists(item.Path))
+                    {
+                        CreateStartItem(item, 1);
+                    }
+                }
+                else if (File.Exists(item.Path))
                 {
                     var icon = (Icon)Icon.ExtractAssociatedIcon(item.Path).Clone();
                     treeView1.ImageList.Images.Add(icon);
@@ -118,8 +127,6 @@ namespace AppStarter
         }
         private void CreateStartItem(AppStartItem item, int imageIdx)
         {
-
-
             if (item.Category == null)
                 item.Category = "(no category)";
 
@@ -150,8 +157,16 @@ namespace AppStarter
         }
         private void OpenData()
         {
-            // ProcessStart
-            // Dialog YesNo - Reload Data?
+            var notepadPath = Environment.ExpandEnvironmentVariables("%systemroot%\\notepad.exe");
+            var dataPath = $"{Environment.CurrentDirectory}\\{DataFile}";
+
+            var startInfo = new ProcessStartInfo()
+            {
+                FileName = notepadPath,
+                Arguments = dataPath
+            };
+            Process.Start(startInfo);
+
         }
 
         private void StartItem()
@@ -171,11 +186,10 @@ namespace AppStarter
 
                     if (appStartItem != null)
                     {
-                        startBlocked = true;
-                        treeView1.SelectedNode = null;
+
                         HideApp();
                         Process.Start(appStartItem.Path);
-                        startBlocked = false;
+
                     }
 
                 }
@@ -293,7 +307,7 @@ namespace AppStarter
 
             notifyIcon1.Dispose();
 
-            SaveData();
+            //SaveData();
 
             Environment.Exit(0);
         }
@@ -308,8 +322,10 @@ namespace AppStarter
             this.Activate();
             this.WindowState = FormWindowState.Normal;
 
-
+            startBlocked = true;
             this.treeView1.Focus();
+            treeView1.SelectedNode = null;
+            treeView1.Update();
             startBlocked = false;
             //this.TopMost = false;
         }
