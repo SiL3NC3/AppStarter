@@ -5,6 +5,13 @@ A Windows tool to create a simple AppStarter constructed by a xml data file.
 No Installation needed, just download the Release and run it.
 It just created the following XML file for defining the shortcuts.
 
+ATTENTION:
+The apps detects the AppStartItem by Text (Name), so do not use the same name twice. ;)
+
+You are still free to fork and customize it for you needs.
+
+NJOY.
+
 # AppStarter.data
 
 This is the main file containing the shortcuts.
