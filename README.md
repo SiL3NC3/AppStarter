@@ -32,5 +32,3 @@ The XML looks like this:
 Each AppStartItem should be placed within <Items> Tag.
 
 Add new item in the XML file as needed.
-
-NJoy.
