@@ -11,8 +11,7 @@ namespace AppStarter.Models
         public string Text { get; set; }
         public string Category { get; set; }
         public string Path { get; set; }
-        public Icon IconID { get; set; }
-
+        public string Arguments { get; set; }
 
         public AppStartItem() { }
     }

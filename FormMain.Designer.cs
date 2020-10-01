@@ -102,7 +102,7 @@
             this.MinimizeBox = false;
             this.Name = "FormMain";
             this.ShowInTaskbar = false;
-            this.Text = "AppStarter [M4N]";
+            this.Text = "[M4N] AppStarter";
             this.Deactivate += new System.EventHandler(this.FormMain_Deactivate);
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormMain_FormClosing);
             this.Load += new System.EventHandler(this.FormMain_Load);

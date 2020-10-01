@@ -35,6 +35,8 @@ namespace AppStarter
         bool startBlocked = false;
 
         const string DataFile = "AppStarter.data";
+        readonly Size DefaultIconSize = new Size(24, 24);
+
         public AppStartData Data { get; set; }
         private List<TreeNode> CategoryNodes { get; set; }
 
@@ -42,7 +44,8 @@ namespace AppStarter
         {
             InitializeComponent();
             CategoryNodes = new List<TreeNode>();
-
+            var v = AssemblyHelper.GetVersion();
+            this.Text = this.Text + $" v{v.Major}.{v.Minor}";
 
         }
 
@@ -50,7 +53,7 @@ namespace AppStarter
         {
             treeView1.Nodes.Clear();
             treeView1.ImageList = new ImageList();
-            treeView1.ImageList.ImageSize = new Size(32, 32);
+            treeView1.ImageList.ImageSize = DefaultIconSize;
             treeView1.ImageList.Images.Add(new Bitmap(1, 1));
 
 
@@ -63,16 +66,12 @@ namespace AppStarter
                 Data = new AppStartData();
 
                 var path = Environment.ExpandEnvironmentVariables("%systemroot%\\explorer.exe");
-                var icon = (Icon)Icon.ExtractAssociatedIcon(path).Clone();
-
-                treeView1.ImageList.Images.Add(icon);
 
                 Data.Items.Add(new AppStartItem()
                 {
                     Category = "Test",
                     Text = "Text",
-                    Path = path,
-                    IconID = icon,
+                    Path = path
                 });
 
                 SaveData();
@@ -116,6 +115,7 @@ namespace AppStarter
                 node.Expand();
             }
         }
+
         private void CreateCategory(string text)
         {
             if (text == null)
@@ -141,8 +141,10 @@ namespace AppStarter
                     SelectedImageIndex = imageIdx,
                     ToolTipText = item.Path
                 };
+
                 if (imageIdx == 0)
                     starterNode.ForeColor = Color.Red;
+
                 catNode.Nodes.Add(starterNode);
             }
             else
@@ -174,6 +176,8 @@ namespace AppStarter
             if (startBlocked)
                 return;
 
+            AppStartItem appStartItem = null;
+
             try
             {
                 var selectedNode = treeView1.SelectedNode;
@@ -182,21 +186,31 @@ namespace AppStarter
                 {
                     Console.WriteLine($"StartItem({selectedNode.Text})");
 
-                    var appStartItem = Data.Items.FirstOrDefault(i => i.Text == selectedNode.Text);
+                    appStartItem = Data.Items.FirstOrDefault(i => i.Text == selectedNode.Text);
 
                     if (appStartItem != null)
                     {
-
                         HideApp();
-                        Process.Start(appStartItem.Path);
-
+                        var startInfo = new ProcessStartInfo()
+                        {
+                            FileName = appStartItem.Path,
+                            Arguments = appStartItem.Arguments,
+                            UseShellExecute = false,
+                            CreateNoWindow = false
+                        };
+                        Process.Start(startInfo);
+                        //Process.Start($"{appStartItem.Path} {startInfo}");
                     }
 
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                var msg = $"Start-Pfad:{Environment.NewLine}" +
+                          $"  {appStartItem.Path}{Environment.NewLine}" +
+                          $"Fehler:{Environment.NewLine}" +
+                          $"  {ex.Message}";
+                MessageBox.Show(this, msg, "FEHLER beim Starten", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
         }
