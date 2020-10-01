@@ -2,6 +2,9 @@
 
 A Windows tool to create a simple AppStarter constructed by a xml data file.
 
+No Installation needed, just download the Release and run it.
+It just created the following XML file for defining the shortcuts.
+
 # AppStarter.data
 
 This is the main file containing the shortcuts.
