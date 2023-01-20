@@ -1,4 +1,5 @@
-﻿using AppStarter.Helpers;
+﻿using AppStarter.Controls;
+using AppStarter.Helpers;
 using AppStarter.Models;
 using AppStarter.Threading;
 using System;
@@ -33,8 +34,9 @@ namespace AppStarter
         #endregion
 
         bool startBlocked = false;
+        bool preventHide = false;
 
-        const string DataFile = "AppStarter.data";
+        const string DataFile = "Apps.xml";
         readonly Size DefaultIconSize = new Size(24, 24);
 
         public AppStartData Data { get; set; }
@@ -56,7 +58,6 @@ namespace AppStarter
             treeView1.ImageList.ImageSize = DefaultIconSize;
             treeView1.ImageList.Images.Add(new Bitmap(1, 1));
 
-
             if (File.Exists(DataFile))
             {
                 Data = XmlHelper.DeserializeFromFile<AppStartData>(DataFile);
@@ -65,13 +66,23 @@ namespace AppStarter
             {
                 Data = new AppStartData();
 
-                var path = Environment.ExpandEnvironmentVariables("%systemroot%\\explorer.exe");
+                var explorer = Environment.ExpandEnvironmentVariables("%systemroot%\\explorer.exe");
 
                 Data.Items.Add(new AppStartItem()
                 {
-                    Category = "Test",
-                    Text = "Text",
-                    Path = path
+                    ID = 1,
+                    Category = "Basic",
+                    Text = "Explorer",
+                    Path = explorer
+                });
+
+                Data.Items.Add(new AppStartItem()
+                {
+                    ID = 2,
+                    Category = "Basic",
+                    Text = "CMD",
+                    Path = @"C:\Windows\System32\cmd.exe",
+                    Arguments = ""
                 });
 
                 SaveData();
@@ -82,6 +93,9 @@ namespace AppStarter
         private void CreateTreeView()
         {
             var imageIdx = 1;
+
+            CategoryNodes.Clear();
+            treeView1.Nodes.Clear();
 
             foreach (var cat in Data.Categories)
             {
@@ -136,6 +150,7 @@ namespace AppStarter
             {
                 var starterNode = new TreeNode
                 {
+                    Tag = item.ID,
                     Text = item.Text,
                     ImageIndex = imageIdx,
                     SelectedImageIndex = imageIdx,
@@ -159,18 +174,45 @@ namespace AppStarter
         }
         private void OpenData()
         {
-            var notepadPath = Environment.ExpandEnvironmentVariables("%systemroot%\\notepad.exe");
-            var dataPath = $"{Environment.CurrentDirectory}\\{DataFile}";
-
-            var startInfo = new ProcessStartInfo()
-            {
-                FileName = notepadPath,
-                Arguments = dataPath
-            };
-            Process.Start(startInfo);
-
+            Process.Start($"{Environment.CurrentDirectory}\\{DataFile}");
         }
 
+        private void UpdateContextMenu()
+        {
+            AppStartItem appStartItem = null;
+
+            try
+            {
+                var selectedNode = treeView1.SelectedNode;
+
+                if (selectedNode != null && selectedNode.Nodes.Count == 0)
+                {
+                    //Console.WriteLine($"StartItem({selectedNode.Text})");
+                    //appStartItem = Data.Items.FirstOrDefault(i => i.Text == selectedNode.Text);
+
+                    // IS START-ITEM
+                    newToolStripMenuItem.Enabled = false;
+                    editToolStripMenuItem.Enabled = true;
+                    deleteToolStripMenuItem.Enabled = true;
+                }
+                else
+                {
+                    // IS CATEGORY-ITEM
+                    newToolStripMenuItem.Enabled = true;
+                    editToolStripMenuItem.Enabled = false;
+                    deleteToolStripMenuItem.Enabled = false;
+
+                }
+            }
+            catch (Exception ex)
+            {
+                var msg = $"Start-Pfad:{Environment.NewLine}" +
+                          $"  {appStartItem.Path}{Environment.NewLine}" +
+                          $"Fehler:{Environment.NewLine}" +
+                          $"  {ex.Message}";
+                MessageBox.Show(this, msg, "FEHLER beim Aktualisieren des Kontextmenüs", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
         private void StartItem()
         {
             if (startBlocked)
@@ -246,6 +288,99 @@ namespace AppStarter
 
         }
 
+        // CONTEXT-MENU
+        private void newToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Console.WriteLine("NEW ITEM: " + treeView1.SelectedNode.Text);
+
+            preventHide = true;
+            using (var dialog = new DialogStartItem(DialogMode.New))
+            {
+                Console.WriteLine("CREATE NEW ITEM...");
+                dialog.SetCategories(Data.Categories);
+
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    var lastID = Data.Items.Max(i => i.ID);
+                    dialog.StartItem.ID = ++lastID;
+
+                    Data.Items.Add(dialog.StartItem);
+                    SaveData();
+                    LoadData();
+                }
+            }
+            preventHide = false;
+        }
+        private void editToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Console.WriteLine("EDIT ITEM: " + treeView1.SelectedNode.Text);
+            var id = (int)treeView1.SelectedNode.Tag;
+            preventHide = true;
+            using (var dialog = new DialogStartItem(DialogMode.Edit))
+            {
+                dialog.SetCategories(Data.Categories);
+                dialog.StartItem = Data.Items.FirstOrDefault(i => i.ID == (int)treeView1.SelectedNode.Tag);
+                dialog.Apply();
+
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    Console.WriteLine("SAVE ITEM...");
+                    var item = Data.Items.FirstOrDefault(i => i.ID == dialog.StartItem.ID);
+                    item.Text = dialog.StartItem.Text;
+                    item.Path = dialog.StartItem.Path;
+                    item.Arguments = dialog.StartItem.Arguments;
+                    SaveData();
+                    LoadData();
+                }
+            }
+            preventHide = false;
+        }
+        private void deleteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Console.WriteLine("DELETE ITEM: " + treeView1.SelectedNode.Text);
+            var id = (int)treeView1.SelectedNode.Tag;
+            preventHide = true;
+            DialogResult dialogResult = MessageBoxEx.Show(this, "Eintrag wirklich löschen?", "Kurze Zwischenfrage...", MessageBoxButtons.YesNo);
+            if (dialogResult == DialogResult.Yes)
+            {
+                Console.WriteLine("DELETE ITEM...");
+                Data.Items.Remove(Data.Items.Find(i => i.ID == id));
+                SaveData();
+                LoadData();
+            }
+            preventHide = false;
+        }
+
+        private void treeView1_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            var hitTest = e.Node.TreeView.HitTest(e.Location);
+            if (hitTest.Location == TreeViewHitTestLocations.PlusMinus)
+                return;
+
+            var selectedNode = ((TreeView)sender).SelectedNode = e.Node;
+
+            if (e.Button == MouseButtons.Right)
+            {
+                UpdateContextMenu();
+                contextMenu.Show(Cursor.Position);
+                //e.Cancel = true;
+                return;
+            }
+            else
+            {
+                StartItem();
+            }
+
+            //if (e.Node == treeView1.SelectedNode)
+            //    StartItem();
+
+            //if (e.Node.IsExpanded)
+            //    e.Node.Collapse();
+            //else
+            //    e.Node.Expand();
+        }
+
+
         // NOTIFY-ICON
         private void editAppsToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -269,24 +404,16 @@ namespace AppStarter
             this.HideApp();
         }
 
-        private void treeView1_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
-        {
-            var hitTest = e.Node.TreeView.HitTest(e.Location);
-            if (hitTest.Location == TreeViewHitTestLocations.PlusMinus)
-                return;
-
-            //if (e.Node == treeView1.SelectedNode)
-            //    StartItem();
-
-            //if (e.Node.IsExpanded)
-            //    e.Node.Collapse();
-            //else
-            //    e.Node.Expand();
-        }
         private void treeView1_AfterSelect(object sender, TreeViewEventArgs e)
         {
-            if (treeView1.SelectedNode != null)
-                StartItem();
+            //if (e.Button == MouseButtons.Right)
+            //{
+            //    e.Cancel = true;
+            //    return;
+            //}
+
+            //if (treeView1.SelectedNode != null)
+            //    StartItem();
         }
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -345,9 +472,10 @@ namespace AppStarter
         }
         private void HideApp()
         {
-            //this.ShowInTaskbar = false;
-            this.Hide();
+            if (!preventHide)
+                this.Hide();
         }
+
 
     }
 }
